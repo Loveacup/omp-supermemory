@@ -1890,7 +1890,7 @@ var SupermemoryClient = class {
       );
       const flatResults = (result.results || []).flatMap(r =>
         (r.chunks || []).map(chunk => ({
-          id: chunk.documentId || r.id,
+          id: r.documentId,
           memory: chunk.content || "",
           similarity: chunk.score || r.score || 0,
         }))
@@ -2075,6 +2075,30 @@ function parseTranscript(transcriptPath) {
                 role: "assistant",
                 content: cleaned
               });
+            }
+          }
+        }
+        // ── OMP `message` type ──────────────────────────────────────
+        if (parsed.type === "message" && parsed.message) {
+          const msg = parsed.message;
+          const role = msg.role;
+          if (role === "user" || role === "assistant") {
+            if (Array.isArray(msg.content)) {
+              const texts = [];
+              for (const block of msg.content) {
+                if (block.type === "text" && block.text) {
+                  texts.push(block.text);
+                }
+              }
+              const combined = texts.join("\n");
+              const cleaned = cleanContent(stripPrivateContent(combined));
+              if (cleaned && cleaned.length > 0) {
+                entries.push({
+                  index: i,
+                  role: role,
+                  content: cleaned
+                });
+              }
             }
           }
         }

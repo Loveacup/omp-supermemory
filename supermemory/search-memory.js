@@ -1880,7 +1880,7 @@ var SupermemoryClient = class {
       );
       const flatResults = (result.results || []).flatMap(r =>
         (r.chunks || []).map(chunk => ({
-          id: chunk.documentId || r.id,
+          id: r.documentId,
           memory: chunk.content || "",
           similarity: chunk.score || r.score || 0,
         }))
