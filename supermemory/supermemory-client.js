@@ -109,7 +109,7 @@ class SupermemoryClient {
   async deleteMemory(memoryId) {
     try {
       await withTimeout(
-        this.getClient().memories.delete(memoryId),
+        this.getClient().documents.delete(memoryId),
         TIMEOUT_MS
       );
       return { success: true };
@@ -124,7 +124,7 @@ class SupermemoryClient {
   async listMemories(containerTag, limit) {
     try {
       const result = await withTimeout(
-        this.getClient().memories.list({
+        this.getClient().documents.list({
           containerTags: [containerTag],
           limit: limit || CONFIG.maxProjectMemories,
           order: "desc",
