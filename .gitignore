@@ -1,0 +1,8 @@
+node_modules/
+credentials.json
+*.log
+.env
+.bak-*
+*.bak
+trackers/
+.supermemory-claude/
