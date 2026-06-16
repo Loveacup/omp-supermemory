@@ -1,6 +1,9 @@
 "use strict";
 
 const Supermemory = require("supermemory");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
 const { CONFIG } = require("./config.js");
 
 const TIMEOUT_MS = 30000;
@@ -13,6 +16,20 @@ function withTimeout(promise, ms) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(id));
 }
 
+function detectSourceTag() {
+  if (process.env.SUPERMEMORY_SOURCE) return process.env.SUPERMEMORY_SOURCE;
+  if (process.env.OMP_SOURCE) return process.env.OMP_SOURCE;
+  const isOMP = !!process.env.OMP_HOME || fs.existsSync(path.join(os.homedir(), ".omp", "agent"));
+  const runtime = isOMP ? "omp" : "codex";
+  const machine = process.env.OMP_MACHINE_NAME
+    || process.env.SUPERMEMORY_MACHINE
+    || { darwin: "macbook", win32: "windows", linux: "linux" }[os.platform()]
+    || os.hostname().split(".")[0].toLowerCase();
+  return `${runtime}-${machine}`;
+}
+
+const SOURCE_TAG = detectSourceTag();
+
 class SupermemoryClient {
   #client = null;
 
@@ -23,7 +40,7 @@ class SupermemoryClient {
       }
       this.#client = new Supermemory({
         apiKey: CONFIG.getApiKeyValue(),
-        defaultHeaders: { "x-sm-source": "omp" },
+        defaultHeaders: { "x-sm-source": SOURCE_TAG },
       });
     }
     return this.#client;
@@ -72,7 +89,7 @@ class SupermemoryClient {
           content,
           containerTag,
           metadata: {
-            sm_source: "omp",
+            sm_source: SOURCE_TAG,
             sm_capture_mode: "tool",
             ...(metadata || {}),
           },
@@ -152,4 +169,5 @@ class SupermemoryClient {
 module.exports = {
   SupermemoryClient,
   supermemoryClient: new SupermemoryClient(),
+  SOURCE_TAG,
 };
