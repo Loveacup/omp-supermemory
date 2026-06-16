@@ -1,6 +1,30 @@
 #!/usr/bin/env node
 "use strict";
 
+// ── Recall storm guard (added 2026-06-17) ─────────────────────────────
+// OMP spawns several short-lived worker processes per turn; each fires this
+// recall hook, producing N concurrent supermemory API calls that lag the
+// first turn. Allow only one recall per (HERDR_PANE_ID|cwd) within a short
+// window; redundant workers exit immediately. Disable with
+// SUPERMEMORY_RECALL_NO_GATE=1; tune the window with SUPERMEMORY_RECALL_GATE_MS.
+(function recallStormGuard() {
+  try {
+    if (process.env.SUPERMEMORY_RECALL_NO_GATE === "1") return;
+    const fs = require("node:fs");
+    const os = require("node:os");
+    const path = require("node:path");
+    const gateMs = Number(process.env.SUPERMEMORY_RECALL_GATE_MS) || 12000;
+    const key = String(process.env.HERDR_PANE_ID || process.cwd() || "global")
+      .replace(/[^A-Za-z0-9]+/g, "_").slice(0, 80);
+    const marker = path.join(os.tmpdir(), "omp-recall-gate-" + key);
+    const now = Date.now();
+    try {
+      if (now - fs.statSync(marker).mtimeMs < gateMs) process.exit(0);
+    } catch (e) { /* no marker yet → proceed */ }
+    try { fs.writeFileSync(marker, String(now)); } catch (e) { /* best effort */ }
+  } catch (e) { /* never block recall on guard failure */ }
+})();
+
 // src/hooks/recall.ts
 var import_node_fs8 = require("node:fs");
 var import_node_path7 = require("node:path");
