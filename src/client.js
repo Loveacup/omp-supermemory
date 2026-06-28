@@ -1,12 +1,13 @@
-"use strict";
+// src/client.js — Single Supermemory SDK wrapper for OMP plugin.
+// Creates a singleton client, wraps all SDK calls with fail-open error handling.
+// Exposes SupermemoryClient class for test injection.
+import Supermemory from "supermemory";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { CONFIG } from "./config.js";
 
-const Supermemory = require("supermemory");
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { CONFIG } = require("./config.js");
-
-const TIMEOUT_MS = 30000;
+const DEFAULT_TIMEOUT_MS = 30000;
 
 function withTimeout(promise, ms) {
   let id;
@@ -33,6 +34,16 @@ const SOURCE_TAG = detectSourceTag();
 class SupermemoryClient {
   #client = null;
 
+  constructor(sdk) {
+    if (sdk) {
+      this.#client = sdk;
+    }
+  }
+
+  get sourceTag() {
+    return SOURCE_TAG;
+  }
+
   getClient() {
     if (!this.#client) {
       if (!CONFIG.isConfigured()) {
@@ -46,17 +57,18 @@ class SupermemoryClient {
     return this.#client;
   }
 
-  // ── V3: cross-pool compatible ──────────────────────────
+  // ── V3: cross-pool compatible ──────────────────────────────────────────
 
-  async searchMemories(query, containerTag) {
+  async searchMemories(query, containerTag, opts = {}) {
     try {
+      const timeoutMs = opts.timeoutMs || DEFAULT_TIMEOUT_MS;
       const result = await withTimeout(
         this.getClient().search.documents({
           q: query,
           containerTags: [containerTag],
           limit: CONFIG.maxMemories,
         }),
-        TIMEOUT_MS
+        timeoutMs
       );
       const flatResults = (result.results || []).flatMap((r) =>
         (r.chunks || []).map((chunk) => ({
@@ -94,7 +106,7 @@ class SupermemoryClient {
             ...(metadata || {}),
           },
         }),
-        TIMEOUT_MS
+        DEFAULT_TIMEOUT_MS
       );
       return { success: true, id: result.id };
     } catch (error) {
@@ -105,13 +117,14 @@ class SupermemoryClient {
     }
   }
 
-  // ── V4: V3 has no equivalent ────────────────────────────
+  // ── V4: V3 has no equivalent ──────────────────────────────────────────
 
-  async getProfile(containerTag, query) {
+  async getProfile(containerTag, query, opts = {}) {
     try {
+      const timeoutMs = opts.timeoutMs || DEFAULT_TIMEOUT_MS;
       const result = await withTimeout(
         this.getClient().profile({ containerTag, q: query || undefined }),
-        TIMEOUT_MS
+        timeoutMs
       );
       return { success: true, ...result };
     } catch (error) {
@@ -127,7 +140,7 @@ class SupermemoryClient {
     try {
       await withTimeout(
         this.getClient().documents.delete(memoryId),
-        TIMEOUT_MS
+        DEFAULT_TIMEOUT_MS
       );
       return { success: true };
     } catch (error) {
@@ -148,7 +161,7 @@ class SupermemoryClient {
           sort: "createdAt",
           includeContent: true,
         }),
-        TIMEOUT_MS
+        DEFAULT_TIMEOUT_MS
       );
       return {
         success: true,
@@ -166,8 +179,6 @@ class SupermemoryClient {
   }
 }
 
-module.exports = {
-  SupermemoryClient,
-  supermemoryClient: new SupermemoryClient(),
-  SOURCE_TAG,
-};
+const supermemoryClient = new SupermemoryClient();
+
+export { SupermemoryClient, supermemoryClient };

@@ -1,37 +1,25 @@
 @echo off
-echo === OMP Supermemory Install ===
+echo ========================================
+echo   omp-supermemory v2.0.0 — Install
+echo ========================================
 echo.
 
-set "OMP_HOME=%USERPROFILE%\.omp"
-set "SRC=%~dp0"
-
-echo [1/5] Copying core scripts...
-xcopy /Y /Q "%SRC%supermemory\*" "%OMP_HOME%\supermemory\"
-
-echo [2/5] Copying skills...
-xcopy /Y /Q "%SRC%skills\*" "%OMP_HOME%\agent\skills\"
-
-echo [3/5] Copying hook configs...
-xcopy /Y /Q "%SRC%hooks\pre\*" "%OMP_HOME%\agent\hooks\pre\"
-xcopy /Y /Q "%SRC%hooks\post\*" "%OMP_HOME%\agent\hooks\post\"
-
-echo [4/5] Setting up SDK symlink...
-if exist "%OMP_HOME%\supermemory\node_modules\supermemory" (
-    echo   SDK already linked.
-) else (
-    mklink /J "%OMP_HOME%\supermemory\node_modules\supermemory" "%USERPROFILE%\.codex\supermemory\node_modules\supermemory" 2>nul
-    if errorlevel 1 (
-        echo   Failed to create symlink. Install supermemory manually:
-        echo   cd /d "%OMP_HOME%\supermemory" ^&^& npm install supermemory
-    ) else (
-        echo   SDK symlink created.
-    )
+REM Install dependencies
+echo [1/2] Installing dependencies...
+call npm install
+if %ERRORLEVEL% NEQ 0 (
+    echo ERROR: npm install failed
+    exit /b 1
 )
 
-echo [5/5] Creating tracker directory...
-mkdir "%USERPROFILE%\.omp-supermemory\trackers" 2>nul
+REM Link plugin
+echo [2/2] Linking OMP plugin...
+omp plugin link %~dp0
+if %ERRORLEVEL% NEQ 0 (
+    echo WARNING: omp plugin link returned error code %ERRORLEVEL%
+    echo You may need to run this from an OMP-enabled terminal.
+)
 
 echo.
-echo === Done! ===
-echo Next: configure ~/.omp/supermemory.json with your container tags.
-pause
+echo Done! Run "omp plugin list" to verify.
+echo If not already logged in, run "node src\login.js" to authenticate.

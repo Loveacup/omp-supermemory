@@ -1,9 +1,0 @@
-{
-  "hooks": [
-    {
-      "type": "command",
-      "command": "node .omp/supermemory/recall.js",
-      "timeout": 90
-    }
-  ]
-}

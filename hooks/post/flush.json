@@ -1,9 +1,0 @@
-{
-  "hooks": [
-    {
-      "type": "command",
-      "command": "node .omp/supermemory/flush.js",
-      "timeout": 60
-    }
-  ]
-}

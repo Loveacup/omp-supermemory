@@ -1,0 +1,9 @@
+{
+  "name": "omp-supermemory",
+  "version": "2.0.0",
+  "type": "module",
+  "description": "Persistent Supermemory for OMP: auto-recall, auto-save, and search/save/forget tools.",
+  "scripts": { "test": "node --test tests/*.test.js" },
+  "omp": { "extensions": ["./src/index.js"] },
+  "dependencies": { "supermemory": "^4.24.12" }
+}
