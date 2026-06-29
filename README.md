@@ -107,7 +107,7 @@ Project tag: {prefix}_project_{sha16(absolute-cwd)}
 ## Test
 
 ```bash
-npm test                    # 50 tests, all passing
+npm test                    # 51 tests, all passing
 node --test tests/index.test.js
 ```
 
@@ -324,7 +324,7 @@ omp-supermemory/
 │   ├── supermemory-save/SKILL.md
 │   ├── supermemory-forget/SKILL.md
 │   └── supermemory-login/SKILL.md
-├── tests/               # 46 tests, all passing
+├── tests/               # 51 tests, all passing
 ├── package.json
 └── README.md
 ```
@@ -342,9 +342,10 @@ omp-supermemory/
 
 ## 已知限制 / Known limitations
 
-1. `supermemory_forget` 无 scope 参数——同时删除 project + user 池匹配项，可能过于激进。
-2. 部分测试依赖 `process.cwd()`，需在项目根目录运行。
-3. 修改 `src/index.js` 后需重启 OMP 才能生效（模块在 session 启动时加载）。
+1. ~~`supermemory_forget` 无 scope 参数~~ → v2.0.1 已修复，新增 `scope: "user"|"project"|"both"`
+2. 部分测试依赖 `process.cwd()`，需在项目根目录运行
+3. `session_shutdown` 1.8s deadline 通过单元测试，E2E 待重启验证
+4. 修改 `src/index.js` 后需重启 OMP 才能生效（模块在 session 启动时加载）
 
 ## License
 
