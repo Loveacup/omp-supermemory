@@ -22,6 +22,17 @@
 
 An OMP extension that gives the agent persistent memory across sessions, machines, and projects. It hooks into OMP's lifecycle to auto-recall relevant memories before every LLM turn and auto-save conversation context periodically.
 
+## Verification status / 验证状态
+
+All three known issues (P0/P1/P2) are closed and E2E verified:
+全部三个已知问题已完成 E2E 验证并闭合：
+
+| ID | Issue | Fix | Verification / 验证 |
+|---|---|---|---|
+| P0 | `session_shutdown` timeout / 超时 | 1.8s `Promise.race` deadline | 日志仅 1 条历史 baseline，修复后零新增 timeout |
+| P1 | Auto-recall injection never observed / 注入未观测到 | No code bug — handler was correct / 代码无 bug | E2E: `omp-macbook` 零出现词跨会话测试，模型答出 supermemory 独有内容；`[sm:context]` 日志交叉确认 |
+| P2 | `supermemory_forget` 404 | V3→V3 API 链路对齐 | API E2E: create → search → delete → get 404，409 edge case 正确处理 |
+
 ## Install
 
 ```bash
@@ -388,8 +399,7 @@ node -e "require('./src/config.js').CONFIG.isConfigured()"
 # 3. 跑测试
 npm test
 ```
-
-Auto-recall 单元测试通过，运行时注入待 OMP 重启后通过诊断日志确认（见 §已知限制 #4）。Auto-save 运行时行为已通过单元测试覆盖，`session_shutdown` 1.8s deadline ✅ 已验证（P0 闭合）。
+Auto-recall 运行时注入已通过 E2E 验证（P1 ✅ — `omp-macbook` 跨会话测试，`[sm:context]` 日志交叉确认）。Auto-save 运行时行为已通过单元测试覆盖，`session_shutdown` 1.8s deadline ✅ 已验证（P0 闭合）。
 
 ## 文件结构 / File structure
 
@@ -428,7 +438,7 @@ omp-supermemory/
 1. ~~`supermemory_forget` 无 scope 参数~~ → v2.0.1 已修复，新增 `scope: "user"|"project"|"both"`
 2. 部分测试依赖 `process.cwd()`，需在项目根目录运行
 3. ~~`session_shutdown` 1.8s deadline~~ → v2.0.1 已验证通过（P0 闭合）
-4. Auto-recall 运行时注入未观测到，已加诊断日志（前缀 `[sm:context]`），待 OMP 重启采样确认根因
+4. ~~Auto-recall 运行时注入未观测到~~ → ✅ v2.0.1 已验证通过（P1 闭合）— `omp-macbook` 跨会话 E2E 测试，`[sm:context]` 日志交叉确认
 5. 修改 `src/index.js` 后需重启 OMP 才能生效（模块在 session 启动时加载）
 
 ## License
