@@ -13,7 +13,7 @@
 - 51 tests green（T5 超时兜底，T6 正常写入）
 
 ### 交付
-- GitHub: 3 commits pushed to `master` (`Loveacup/omp-supermemory`)
+- GitHub: 4 commits pushed to `master` (`Loveacup/omp-supermemory`)
 - README + Obsidian 更新
 
 ## 待新 session 验证
@@ -24,7 +24,7 @@
 2. 对话几轮 → /exit 正常退出
 3. grep "Extension handler timed out.*session_shutdown" ~/.omp/logs/omp.YYYY-MM-DD.log
 ```
-预期：无新 warning。`-p` / `--mode rpc` 通道未观测到该事件，只有交互式退出能触发。
+预期：无新 warning。本次 `-p` / `--mode rpc` 通道未观测到 `session_shutdown` 事件，建议交互式 session 退出后核查。
 
 ### P1: auto-recall 重复注入检测
 多轮对话观察 `## Relevant memory` 是否重复。
