@@ -63,7 +63,7 @@ SUPERMEMORY_API_KEY env > supermemory.json apiKey > credentials.json apiKey
 |---|---|
 | `supermemory_search` | `query` (required), `scope: "user"\|"project"\|"both"`, `includeProfile: bool` |
 | `supermemory_save` | `content` (required), `scope: "user"\|"project"`, `type: string` |
-| `supermemory_forget` | `description` (required) — searches both pools and deletes all matches |
+| `supermemory_forget` | `description` (required), `scope: "user"\|"project"\|"both"` (default `"both"`) — searches and deletes matches in the specified pool(s) |
 
 ## Architecture invariants
 
@@ -106,7 +106,7 @@ Project tag: {prefix}_project_{sha16(absolute-cwd)}
 ## Test
 
 ```bash
-npm test                    # 46 tests, all passing
+npm test                    # 50 tests, all passing
 node --test tests/index.test.js
 ```
 

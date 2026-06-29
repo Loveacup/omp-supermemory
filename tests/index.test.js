@@ -15,7 +15,8 @@ function makeMockPi() {
     get label() { return label; },
     get entries() { return entries_; },
     zod: { z: new Proxy({}, { get(_, prop) {
-      const b = (a) => { const base = prop === "object" ? { type: "object", shape: a } : prop === "enum" ? { type: "enum", values: a } : { type: prop }; return new Proxy(base, { get(_, cp) { if (cp === "describe") return () => base; if (cp === "default") return v => ({ ...base, defaultValue: v }); if (cp === "shape") return base.shape; return undefined; } }); };
+      const wrap = (base) => new Proxy(base, { get(_, cp) { if (cp === "describe") return () => base; if (cp === "default") return v => wrap({ ...base, defaultValue: v }); if (cp === "shape") return base.shape; return undefined; } });
+      const b = (a) => wrap(prop === "object" ? { type: "object", shape: a } : prop === "enum" ? { type: "enum", values: a } : { type: prop });
       if (["string","number","boolean","object","enum"].includes(prop)) return b; return undefined;
     }})},
     on(e, h) { (handlers[e] = handlers[e] || []).push(h); },
@@ -168,5 +169,69 @@ describe("src/index.js", () => {
     assert.ok(r.content[0].text.includes("Deleted"));
     assert.ok(r.details.deletedProject + r.details.deletedUser >= 2);
     assert.ok(calls.filter(c => c[0] === "delete").length >= 2);
+  });
+
+  // ── forget scope ───────────────────────────────────────────────────────
+
+  it("supermemory_forget scope=project only deletes project", async () => {
+    const { client, calls } = makeMockClient({ search: { success: true, results: [{ id: "p1", memory: "x", similarity: 0.9 }], total: 1 }, delete: { success: true } });
+    const f = await wire(client); const pi = makeMockPi(); f(pi);
+    const r = await pi.tools.supermemory_forget.execute("tc4", { description: "x", scope: "project" }, null, null, makeMockCtx());
+    assert.ok(r.content[0].text.includes("Deleted"));
+    assert.strictEqual(r.details.deletedProject, 1);
+    assert.strictEqual(r.details.deletedUser, 0);
+    assert.strictEqual(r.details.scope, "project");
+    // Only project search should be called, not user
+    assert.strictEqual(calls.filter(c => c[0] === "search" && c[2] === "test-user").length, 0);
+  });
+
+  it("supermemory_forget scope=user only deletes user", async () => {
+    const { client, calls } = makeMockClient({ search: { success: true, results: [{ id: "u1", memory: "y", similarity: 0.8 }], total: 1 }, delete: { success: true } });
+    const f = await wire(client); const pi = makeMockPi(); f(pi);
+    const r = await pi.tools.supermemory_forget.execute("tc5", { description: "y", scope: "user" }, null, null, makeMockCtx());
+    assert.ok(r.content[0].text.includes("Deleted"));
+    assert.strictEqual(r.details.deletedProject, 0);
+    assert.strictEqual(r.details.deletedUser, 1);
+    assert.strictEqual(r.details.scope, "user");
+    // Only user search should be called, not project
+    assert.strictEqual(calls.filter(c => c[0] === "search" && c[2] === "test-project").length, 0);
+  });
+
+  it("supermemory_forget scope=both deletes both", async () => {
+    const { client, calls } = makeMockClient({ search: { success: true, results: [{ id: "b1", memory: "z" }], total: 1 }, delete: { success: true } });
+    const f = await wire(client); const pi = makeMockPi(); f(pi);
+    const r = await pi.tools.supermemory_forget.execute("tc6", { description: "z", scope: "both" }, null, null, makeMockCtx());
+    assert.ok(r.content[0].text.includes("Deleted"));
+    assert.strictEqual(r.details.deletedProject, 1);
+    assert.strictEqual(r.details.deletedUser, 1);
+    assert.strictEqual(r.details.scope, "both");
+  });
+
+  // ── shutdown deadline ──────────────────────────────────────────────────
+
+  it("session_shutdown deadline does not throw on timeout", async () => {
+    const { client, calls } = makeMockClient({ add: { success: true, id: "slow" } });
+    // Make addMemory slow enough to trigger the 1.8s deadline
+    client.addMemory = async (c, t, m) => {
+      calls.push(["add", c, t, m]);
+      await new Promise(resolve => setTimeout(resolve, 2000)); // >1.8s deadline
+      return { success: true, id: "slow" };
+    };
+    const f = await wire(client); const pi = makeMockPi(); f(pi);
+    const ctx = makeMockCtx({ branch: [{ id: "e1", type: "user", content: "msg" }], sessionFile: "sessions/slow.jsonl" });
+    await pi.handlers.session_start[0]({}, ctx);
+    // Must not throw — deadline catches the timeout
+    await assert.doesNotReject(() => pi.handlers.session_shutdown[0]({}, ctx));
+  });
+
+  it("session_shutdown completes within deadline when addMemory is fast", async () => {
+    const { client, calls } = makeMockClient({ add: { success: true, id: "fast" } });
+    const f = await wire(client); const pi = makeMockPi(); f(pi);
+    const ctx = makeMockCtx({ branch: [{ id: "e1", type: "user", content: "fast msg" }], sessionFile: "sessions/fast.jsonl" });
+    await pi.handlers.session_start[0]({}, ctx);
+    await pi.handlers.session_shutdown[0]({}, ctx);
+    const ac = calls.find(c => c[0] === "add");
+    assert.ok(ac, "addMemory should be called on fast shutdown");
+    assert.ok(ac[1].includes("[Session fast]"));
   });
 });

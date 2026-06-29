@@ -193,7 +193,10 @@ export default function (piRef) {
 
   pi.on("session_shutdown", async (_event, ctx) => {
     try {
-      await captureNew(ctx);
+      await Promise.race([
+        captureNew(ctx),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("SHUTDOWN_FLUSH_TIMEOUT")), 1800)),
+      ]);
     } catch {
       // Never block shutdown
     }
@@ -321,6 +324,7 @@ export default function (piRef) {
     description: "Remove outdated or incorrect information from Supermemory.",
     parameters: z.object({
       description: z.string().describe("Description of what to forget (used as search query)"),
+      scope: z.enum(["user", "project", "both"]).default("both").describe("Which container to forget from"),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       if (!CONFIG.isConfigured()) {
@@ -330,16 +334,20 @@ export default function (piRef) {
         };
       }
 
+      const scope = params.scope ?? "both";
       const tags = getTags(ctx.cwd);
 
-      // Search both containers
-      const [projectSearch, userSearch] = await Promise.all([
-        getClient().searchMemories(params.description, tags.project),
-        getClient().searchMemories(params.description, tags.user),
-      ]);
+      // Search according to scope
+      let projectSearch, userSearch;
+      if (scope === "project" || scope === "both") {
+        projectSearch = await getClient().searchMemories(params.description, tags.project);
+      }
+      if (scope === "user" || scope === "both") {
+        userSearch = await getClient().searchMemories(params.description, tags.user);
+      }
 
-      const projectIds = (projectSearch.results || []).map(r => r.id);
-      const userIds = (userSearch.results || []).map(r => r.id);
+      const projectIds = (projectSearch?.results || []).map(r => r.id);
+      const userIds = (userSearch?.results || []).map(r => r.id);
 
       let deletedProject = 0;
       let deletedUser = 0;
@@ -367,7 +375,7 @@ export default function (piRef) {
 
       return {
         content: [{ type: "text", text: lines.join("\n") }],
-        details: { deletedProject, deletedUser, errors },
+        details: { scope, deletedProject, deletedUser, errors },
       };
     },
   });
