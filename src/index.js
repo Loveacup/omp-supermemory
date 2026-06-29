@@ -97,19 +97,30 @@ export default function (piRef) {
   // ── Auto-recall: inject context before each LLM turn ────────────────────
   pi.on("context", async (event, ctx) => {
     try {
-      if (!CONFIG.isConfigured() || !CONFIG.autoRecallEveryPrompt) return;
+      if (!CONFIG.isConfigured() || !CONFIG.autoRecallEveryPrompt) {
+        pi.logger?.debug?.("[sm:context] skipped: configured=%s autoRecall=%s", !!CONFIG.isConfigured(), CONFIG.autoRecallEveryPrompt);
+        return;
+      }
 
       const query = extractQuery(event.messages || []);
-      if (!query) return;
+      if (!query) {
+        pi.logger?.debug?.("[sm:context] no query from %d messages", (event.messages || []).length);
+        return;
+      }
 
       // Dedup
       const now = Date.now();
-      if (query === lastQuery && now - lastQueryTs < CONFIG.recallDedupMs) return;
+      if (query === lastQuery && now - lastQueryTs < CONFIG.recallDedupMs) {
+        pi.logger?.debug?.("[sm:context] dedup: same query within %dms", now - lastQueryTs);
+        return;
+      }
       lastQuery = query;
       lastQueryTs = now;
 
       const tags = getTags(ctx.cwd);
       const budget = CONFIG.recallBudgetMs;
+
+      pi.logger?.debug?.("[sm:context] searching project=%s user=%s q=%.80s", tags.project, tags.user, query);
 
       // Parallel: search project + user + profile
       const [projectResult, userResult, profileResult] = await Promise.all([
@@ -119,6 +130,11 @@ export default function (piRef) {
           ? getClient().getProfile(tags.user, query, { timeoutMs: budget })
           : Promise.resolve(null),
       ]);
+
+      pi.logger?.debug?.("[sm:context] project=%d user=%d profile=%s",
+        projectResult?.results?.length ?? 0,
+        userResult?.results?.length ?? 0,
+        profileResult?.profile?.length ?? "none");
 
       // Build context block
       const lines = [];
@@ -146,16 +162,20 @@ export default function (piRef) {
         if (profileText) lines.push(`**Profile:** ${profileText}`);
       }
 
-      if (lines.length === 1) return; // just the header, nothing found
+      if (lines.length === 1) {
+        pi.logger?.debug?.("[sm:context] no results for injection");
+        return;
+      }
 
+      pi.logger?.debug?.("[sm:context] injecting %d line block", lines.length);
       return {
         messages: [
           { role: "system", content: lines.join("\n") },
           ...event.messages,
         ],
       };
-    } catch {
-      // Never block context assembly
+    } catch (err) {
+      pi.logger?.warn?.("[sm:context] error: %s", err?.message || err);
     }
   });
 
