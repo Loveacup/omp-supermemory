@@ -72,6 +72,7 @@ SUPERMEMORY_API_KEY env > supermemory.json apiKey > credentials.json apiKey
 3. **Dedup** — identical queries within `recallDedupMs` ms are suppressed.
 4. **Source tag** — auto-detected `omp-windows` / `codex-macbook` sent as `x-sm-source` header.
 5. **Recall format** — injected as system message: `## Relevant memory (Supermemory)` followed by bullet list.
+6. **Shutdown deadline** — `session_shutdown` handler races `captureNew` against a 1.8s deadline; host 2s hard-kill is safely absorbed without blocking shutdown.
 
 ## Container / tagging scheme
 
