@@ -1,10 +1,17 @@
 # omp-supermemory v2.0.1
 
-> Persistent AI memory for OMP — auto-recall, auto-save, multi-machine shared pools.
-> OMP 持久化记忆插件 — 自动召回、自动存档、多机共池。
-> 
-> [Supermemory](https://supermemory.ai) · [GitHub](https://github.com/Loveacup/omp-supermemory) · MIT
+<p align="center">
+  <strong>Persistent AI memory for OMP — auto-recall, auto-save, multi-machine shared pools.</strong>
+  <br>
+  <strong>OMP 持久化记忆插件 — 自动召回、自动存档、多机共池。</strong>
+</p>
 
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT"></a>
+  <a href="https://github.com/Loveacup/omp-supermemory"><img src="https://img.shields.io/badge/version-2.0.1-green.svg" alt="v2.0.1"></a>
+  <a href="#test"><img src="https://img.shields.io/badge/tests-51%20passed-brightgreen.svg" alt="51 tests"></a>
+  <a href="https://supermemory.ai"><img src="https://img.shields.io/badge/backend-Supermemory%20V3-purple.svg" alt="Supermemory V3"></a>
+</p>
 ---
 
 # 🤖 AI-READABLE SECTION (AI 可读)
@@ -195,6 +202,7 @@ flowchart TB
 ### 多机多 CLI 全景 / Full multi-machine view
 
 Hermes（运行在 Mac mini）通过 remote 调用三台机器上的 OMP / Codex / Claude Code agent。所有 CLI 共用同一套 User/Project Pool，靠 source tag 区分来源：
+Hermes (on Mac mini) remotely invokes OMP / Codex / Claude Code agents across three machines. All CLIs share the same User/Project Pools, differentiated by source tag:
 
 ```
                          Hermes (Mac mini)
@@ -222,79 +230,80 @@ Hermes（运行在 Mac mini）通过 remote 调用三台机器上的 OMP / Codex
    │  └──────────────┘  └──────────┘  └───────────────┘  │
    └─────────────────────────────────────────────────────┘
 ```
-
+**Source tag matrix (deployment example across CLI ecosystem)**：
 **Source tag 矩阵（跨 CLI 生态部署示例）**：
 
-> 本插件自动产出 `omp-*` / `codex-*`；机器名默认 `windows|macbook|linux`，可通过 `OMP_MACHINE_NAME` 覆盖（如 `macmini`）。`claude-code-*` 由 CC 插件独立产出。
+> This plugin auto-produces `omp-*` / `codex-*`; machine names default to `windows|macbook|linux`, overridable via `OMP_MACHINE_NAME`. `claude-code-*` is produced independently by the CC plugin.
+> 本插件自动产出 `omp-*` / `codex-*`；机器名默认 `windows|macbook|linux`，可通过 `OMP_MACHINE_NAME` 覆盖。`claude-code-*` 由 CC 插件独立产出。
 
-| 机器 | OMP（本插件） | Codex（本插件） | Claude Code（外部） |
+| Machine / 机器 | OMP（本插件） | Codex（本插件） | Claude Code（外部） |
 |---|---|---|---|
 | Win11 | `omp-windows` | `codex-windows` | `claude-code-windows` |
 | Mac mini | `omp-macmini`¹ | `codex-macmini`¹ | `claude-code-macmini` |
 | MacBook Pro | `omp-macbook` | `codex-macbook` | `claude-code-macbook` |
 
-> ¹ `macmini` 非默认值，需 `OMP_MACHINE_NAME=macmini` 覆盖（默认 `darwin` → `macbook`）
+> ¹ `macmini` requires `OMP_MACHINE_NAME=macmini` override (default `darwin` → `macbook`). / 需 `OMP_MACHINE_NAME=macmini` 覆盖
+**Design notes / 设计要点**：
+- **Hermes uses independent memory pools**, fully isolated from this shared system. / **Hermes 使用独立记忆池**
+- All CLIs share pools via **explicit `projectContainerTag` pin** — deployment practice, not plugin default (default `project=SHA16(cwd)`). / 所有 CLI 通过 **pin `projectContainerTag`** 共池（部署实践，非默认）
+- 9 source tag combinations for precise per-machine, per-CLI provenance. / 9 种 source tag 精确溯源
+- Same git email → user pool auto-shares across devices/CLIs. / 同一 git email → user pool 自动共享
 
-**设计要点**：
-- **Hermes 使用独立记忆池**，与这套共用体系完全隔离、互不干扰
-- 所有 CLI 通过 **显式 pin `projectContainerTag`** 实现共池，这是一种生产部署实践，不是插件默认行为（默认 `project=SHA16(cwd)`，各机隔离）
-- 9 种 source tag 组合，可精确 filter 溯源每条记忆来自哪台设备的哪个 CLI
-- 同一人同一 git email → user pool 自动跨设备/跨 CLI 共享
+## 标签系统 / Tagging: two distinct layers
 
-## 标签系统：两层结构 / Tagging: two distinct layers
+标签系统分两层，各司其职。Two independent layers; only container tags affect pool routing.
 
-标签系统分两层，各司其职：
-
-### 1. 容器标签 (Container Tags) — 决定记忆进哪个池
+### 1. 容器标签 / Container Tags — 决定进哪个池
 
 ```
-User Tag:   {prefix}_user_{sha16(git-email || os-username)}
-Project Tag: {prefix}_project_{sha16(absolute-cwd)}
+User Tag:   {prefix}_user_{SHA16(git-email || os-username)}
+Project Tag: {prefix}_project_{SHA16(cwd-path)}
 ```
 
-**User pool** 跨机自动共享（同一 git email），**project pool** 默认不跨机（不同机器路径不同 → hash 不同）。要跨机共享项目池，显式 pin `projectContainerTag`。
+**User pool** auto-shares across machines when `git config user.email` matches. / 跨机自动共享（同一 git email）。
+**Project pool** does NOT auto-share (paths differ → hashes differ). Pin `projectContainerTag` for cross-machine sharing. / 默认不跨机，需 pin `projectContainerTag`。
 
-### 2. 来源标签 (Source Tag) — 记录记忆由谁写入
+### 2. 来源标签 / Source Tag — 记录来源（元数据）
 
 ```
 Source Tag:  "{omp|codex}-{windows|macbook|linux}"
-→ 作为 x-sm-source header，每个 API 调用都带上
+→ x-sm-source header, metadata only, does NOT affect pool routing
 ```
 
+可覆盖 / Overridable: `SUPERMEMORY_SOURCE=my-label` or `OMP_MACHINE_NAME=macmini`.
 
-### 多机多 CLI 共池：一个人的多设备记忆逻辑
+### 多机多 CLI 共池 / Multi-machine shared pools
 
-核心问题：一个人可能有多台设备（台式机/笔记本）、多个 CLI（OMP/Codex）、多个项目。记忆怎么路由？
-
-#### 路由规则
+Routing rules:
 
 ```
+Memory write → Container Tag determines pool → Source Tag is metadata only
 写入一条记忆 → 容器标签决定进哪个池 → 来源标签只记元数据
 
-User Pool 路由:  SHA16(git config user.email)  → 同一 git email → 同一 user pool
-                 缺失时回退 SHA16(OS username)
+User Pool:    SHA16(git config user.email)   → same email → same pool
+               fallback SHA16(OS username)
 
-Project Pool 路由: SHA16(绝对 cwd 路径)          → 不同机器路径不同 → 默认隔离
-                 显式 pin projectContainerTag    → 强制共池
+Project Pool: SHA16(absolute cwd path)        → different machines → isolated
+              pin projectContainerTag         → forced co-pool
 
-Source Tag:       {omp|codex}-{windows|macbook|linux}  → x-sm-source header（元数据，不参与路由）
+Source Tag:   {omp|codex}-{windows|macbook|linux} → x-sm-source (metadata)
 ```
 
-#### 场景矩阵
+**Scene matrix / 场景矩阵**：
 
-| 设备 | CLI | git email | cwd | User Pool | Project Pool | Source Tag |
+| Device / 设备 | CLI | git email | cwd | User Pool | Project Pool | Source Tag |
 |---|---|---|---|---|---|---|
-| Win11 台式机 | OMP | alex@corp.com | `C:\work\repo` | `omp_user_a1b2c3d4` | `omp_project_ab12cd34` | `omp-windows` |
-| macOS 笔记本 | OMP | alex@corp.com | `/Users/alex/work/repo` | `omp_user_a1b2c3d4` ✅ 同池 | `omp_project_ef56gh78` ❌ 不同 | `omp-macbook` |
-| macOS 笔记本 | Codex | alex@corp.com | `/Users/alex/work/repo` | `omp_user_a1b2c3d4` ✅ 同池 | `omp_project_ef56gh78` ❌ 不同 | `codex-macbook` |
-| Win11 台式机 | OMP | bob@corp.com | `C:\work\repo` | `omp_user_x9y8z7w6` ❌ 不同 | `omp_project_ab12cd34` | `omp-windows` |
+| Win11 Desktop | OMP | alex@corp.com | `C:\work\repo` | `omp_user_a1b2c3d4` | `omp_project_ab12cd34` | `omp-windows` |
+| macOS Laptop | OMP | alex@corp.com | `/Users/alex/work/repo` | `omp_user_a1b2c3d4` ✅ | `omp_project_ef56gh78` ❌ | `omp-macbook` |
+| macOS Laptop | Codex | alex@corp.com | `/Users/alex/work/repo` | `omp_user_a1b2c3d4` ✅ | `omp_project_ef56gh78` ❌ | `codex-macbook` |
+| Win11 Desktop | OMP | bob@corp.com | `C:\work\repo` | `omp_user_x9y8z7w6` ❌ | `omp_project_ab12cd34` | `omp-windows` |
 
-**要点**：
-- 同一人同一 git email → user pool 天然共池，所有设备/CLI 共享个人记忆
-- 不同机器上同一项目的 cwd 路径不同 → project pool 默认隔离；要共池需在 `supermemory.json` 中显式 pin `projectContainerTag: "my-team-project"`
-- 同一机器上 OMP 和 Codex 同时用 → 同一套标签规则，池互通；source tag 区分来源
+**Key takeaway / 要点**：
+- Same git email → user pool auto-shares across all machines and CLIs. / 同一 git email → user pool 天然共池
+- Different machines → project pool isolated by default; pin `projectContainerTag` to share. / 不同机器 project pool 默认隔离，需 pin
+- OMP + Codex on same machine share the same tag rules; source tag distinguishes origin. / 同机 OMP+Codex 池互通，source tag 区分来源
 
-#### 共池配置 / Shared pool setup
+**Shared pool setup / 共池配置**：
 
 ```json
 {
@@ -303,9 +312,10 @@ Source Tag:       {omp|codex}-{windows|macbook|linux}  → x-sm-source header（
 }
 ```
 
-- `projectContainerTag` pin 后，所有机器的该项目记忆进同一 project pool
-- `userContainerTag` pin 后，可创建团队共享用户池（跨 git email）
-- 不 pin 时，user pool 自动按 git email 共享，project pool 按 cwd 隔离
+- Pin `projectContainerTag` → all machines share the same project pool.
+- Pin `userContainerTag` → cross-email team user pool.
+- No pin → user pool auto-shares by git email; project pool isolated by cwd.
+- 不 pin：user pool 自动按 git email 共享，project pool 按 cwd 隔离。
 
 ## 安装 / Install
 
