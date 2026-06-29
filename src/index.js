@@ -5,6 +5,7 @@
 import { getClient } from "./internals.js";
 import { getTags } from "./tags.js";
 import { CONFIG } from "./config.js";
+import path from "node:path";
 let lastCapturedEntryId = null;
 let turnsSinceCapture = 0;
 
@@ -67,7 +68,7 @@ async function captureNew(ctx) {
     .join("\n");
 
   const sessionId = ctx.sessionManager?.getSessionFile
-    ? ctx.sessionManager.getSessionFile().split("/").pop()?.replace(/\.jsonl?$/, "") || "unknown"
+    ? path.basename(ctx.sessionManager.getSessionFile()).replace(/\.jsonl?$/, "") || "unknown"
     : "unknown";
 
   const tags = getTags(ctx.cwd);

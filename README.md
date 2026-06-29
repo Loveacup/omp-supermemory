@@ -22,17 +22,6 @@
 
 An OMP extension that gives the agent persistent memory across sessions, machines, and projects. It hooks into OMP's lifecycle to auto-recall relevant memories before every LLM turn and auto-save conversation context periodically.
 
-## Verification status / 验证状态
-
-All three known issues (P0/P1/P2) are closed and E2E verified:
-全部三个已知问题已完成 E2E 验证并闭合：
-
-| ID | Issue | Fix | Verification / 验证 |
-|---|---|---|---|
-| P0 | `session_shutdown` timeout / 超时 | 1.8s `Promise.race` deadline | 日志仅 1 条历史 baseline，修复后零新增 timeout |
-| P1 | Auto-recall injection never observed / 注入未观测到 | No code bug — handler was correct / 代码无 bug | E2E: `omp-macbook` 零出现词跨会话测试，模型答出 supermemory 独有内容；`[sm:context]` 日志交叉确认 |
-| P2 | `supermemory_forget` 404 | V3→V3 API 链路对齐 | API E2E: create → search → delete → get 404，409 edge case 正确处理 |
-
 ## Install
 
 ```bash
@@ -330,19 +319,27 @@ Source Tag:   {omp|codex}-{windows|macbook|linux} → x-sm-source (metadata)
 
 ## 安装 / Install
 
+**macOS / Linux:**
+
 ```bash
-# 1. Clone
 git clone https://github.com/Loveacup/omp-supermemory.git
 cd omp-supermemory
+bash install.sh
+```
 
-# 2. Install dependencies
+**Windows:**
+
+```bat
+git clone https://github.com/Loveacup/omp-supermemory.git
+cd omp-supermemory
+install.bat
+```
+
+或手动 / Or manually:
+
+```bash
 npm install
-
-# 3. Link as OMP plugin
 omp plugin link .
-
-# 4. Verify
-omp plugin list
 ```
 
 ## 登录 / Login
@@ -385,21 +382,25 @@ export SUPERMEMORY_API_KEY=sm_...
 
 > **安全提示 / Security:** 推荐用 `SUPERMEMORY_API_KEY` 环境变量或 `credentials.json` 存储 API key。`supermemory.json` 中的 `apiKey` 字段仅为兼容保留，不推荐使用——该文件可能被复制或分享。
 
-## 验证 / Verification
+## 配置向导 / Config Wizard
 
-安装完成后，验证三步：
+安装后运行向导，自动验证 key、推荐 project pool、生成配置：
 
 ```bash
-# 1. 插件是否加载
-omp plugin list | grep supermemory
-
-# 2. 登录是否成功
-node -e "require('./src/config.js').CONFIG.isConfigured()"
-
-# 3. 跑测试
-npm test
+node src/wizard.js          # 交互式引导 / Interactive
+node src/wizard.js --auto   # 自动配置 / Auto-configure
+node src/wizard.js --status # 查看配置 / Status
 ```
-Auto-recall 运行时注入已通过 E2E 验证（P1 ✅ — `omp-macbook` 跨会话测试，`[sm:context]` 日志交叉确认）。Auto-save 运行时行为已通过单元测试覆盖，`session_shutdown` 1.8s deadline ✅ 已验证（P0 闭合）。
+
+向导流程 / Wizard flow：验证 API key → 展示计算出的 tags → 推荐 `sm_project_cli` 项目池 → 写入 `~/.omp/supermemory.json`。
+
+## 验证 / Verification
+
+```bash
+omp plugin list | grep supermemory   # 插件加载 / Plugin loaded
+node src/wizard.js --status           # 配置状态 / Config status
+npm test                              # 51 tests / 51 项测试
+```
 
 ## 文件结构 / File structure
 
@@ -412,12 +413,15 @@ omp-supermemory/
 │   ├── client.js        # SupermemoryClient (search/add/delete/profile)
 │   ├── internals.js     # getClient/setClient (test injection point)
 │   └── login.js         # Standalone OAuth browser login
+│   └── wizard.js        # Config wizard / 配置向导
 ├── skills/              # OMP skill definitions
 │   ├── supermemory-search/SKILL.md
 │   ├── supermemory-save/SKILL.md
 │   ├── supermemory-forget/SKILL.md
 │   └── supermemory-login/SKILL.md
 ├── tests/               # 51 tests, all passing
+├── install.sh            # macOS/Linux install
+├── install.bat           # Windows install
 ├── package.json
 └── README.md
 ```
@@ -438,7 +442,7 @@ omp-supermemory/
 1. ~~`supermemory_forget` 无 scope 参数~~ → v2.0.1 已修复，新增 `scope: "user"|"project"|"both"`
 2. 部分测试依赖 `process.cwd()`，需在项目根目录运行
 3. ~~`session_shutdown` 1.8s deadline~~ → v2.0.1 已验证通过（P0 闭合）
-4. ~~Auto-recall 运行时注入未观测到~~ → ✅ v2.0.1 已验证通过（P1 闭合）— `omp-macbook` 跨会话 E2E 测试，`[sm:context]` 日志交叉确认
+4. Auto-recall 运行时注入未观测到，已加诊断日志（前缀 `[sm:context]`），待 OMP 重启采样确认根因
 5. 修改 `src/index.js` 后需重启 OMP 才能生效（模块在 session 启动时加载）
 
 ## License

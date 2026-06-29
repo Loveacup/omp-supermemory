@@ -125,6 +125,14 @@ function startAuthFlow() {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
+  // Check env var first — highest priority, matching config.js resolution order
+  const envKey = process.env.SUPERMEMORY_API_KEY?.trim();
+  if (envKey) {
+    console.log("Already authenticated with Supermemory (using SUPERMEMORY_API_KEY). Memory is active.");
+    console.log(`To switch accounts, unset SUPERMEMORY_API_KEY and run this again.`);
+    return;
+  }
+
   const existingKey = loadCredentials();
   if (existingKey) {
     console.log("Already authenticated with Supermemory. Memory is active.");
